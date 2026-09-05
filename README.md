@@ -52,16 +52,3 @@ The result: every code change flows through security checks and automated deploy
 4. **Manifest-file:** Kubernetes manifest files for the Tetris application deployment.
 5. **Tetris-V1:** Initial version of the Tetris game application.
 6. **Tetris-V2:** Enhanced version of the Tetris game application.
-
-## 🚀 Getting Started
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/<YOUR_GITHUB_USERNAME>/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git
-   ```
-2. **Explore the directories:**
-   Navigate into each directory to find detailed scripts, pipelines, and configurations.
-
-## 🙌 Acknowledgments
-
-Special thanks to the open-source community and the contributors who make learning and collaboration an incredible journey.
