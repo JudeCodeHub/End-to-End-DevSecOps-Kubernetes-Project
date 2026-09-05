@@ -1,65 +1,76 @@
-# !/bin/bash
-# For Ubuntu 22.04
-# Intsalling Java
-sudo apt update
-sudo apt install fontconfig openjdk-21-jre -y
-java --version
+#!/bin/bash
+set -euo pipefail
+# Ubuntu 22.04 / 24.04
 
-# Installing Jenkins
+sudo apt update
+sudo mkdir -p /etc/apt/keyrings
+
+# ---- Java 21 ----
+sudo apt install -y fontconfig openjdk-21-jre unzip wget gnupg curl \
+  ca-certificates software-properties-common apt-transport-https
+
+# ---- Jenkins ----
 sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc \
   https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
 echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc]" \
   https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
   /etc/apt/sources.list.d/jenkins.list > /dev/null
-sudo apt update
-sudo apt install jenkins -y
+sudo apt update && sudo apt install -y jenkins
 
-# Installing Docker
+# ---- Docker (upstream, not docker.io) ----
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
-sudo apt install docker.io -y
+sudo apt install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker jenkins
-sudo usermod -aG docker ubuntu
-sudo systemctl restart docker
-sudo chmod 777 /var/run/docker.sock
+sudo usermod -aG docker "$USER"
+sudo systemctl restart jenkins   # so Jenkins picks up the docker group
 
-# If you don't want to install Jenkins, you can create a container of Jenkins
-# docker run -d -p 8080:8080 -p 50000:50000 --name jenkins-container jenkins/jenkins:lts
+# ---- SonarQube ----
+echo "vm.max_map_count=524288" | sudo tee /etc/sysctl.d/99-sonarqube.conf
+sudo sysctl --system
+sudo docker volume create sonar_data
+sudo docker volume create sonar_ext
+sudo docker run -d --name sonarqube --restart unless-stopped -p 9000:9000 \
+  -v sonar_data:/opt/sonarqube/data \
+  -v sonar_ext:/opt/sonarqube/extensions \
+  sonarqube:community
 
-# Run Docker Container of Sonarqube
-docker run -d --name sonarqube -p 9000:9000 sonarqube:community
-
-
-# Installing Terraform
-sudo apt install unzip -y
-sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
-wget -O- https://apt.releases.hashicorp.com/gpg | \
-gpg --dearmor | \
-sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-gpg --no-default-keyring \
---keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg \
---fingerprint
+# ---- Terraform ----
+wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor \
+  | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
 echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
-https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
-sudo tee /etc/apt/sources.list.d/hashicorp.list
-sudo apt update
-sudo apt-get install terraform -y
+https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+  | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install -y terraform
 
-# Installing Kubectl
-curl -LO https://dl.k8s.io/release/v1.33.5/bin/linux/amd64/kubectl
-curl -LO https://dl.k8s.io/release/v1.33.5/bin/linux/amd64/kubectl.sha256
+# ---- kubectl (set to match your EKS cluster) ----
+K8S_VERSION="$(curl -Ls https://dl.k8s.io/release/stable.txt)"
+curl -LO "https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl.sha256"
 echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+rm -f kubectl kubectl.sha256
 kubectl version --client
 
-# Installing AWS CLI v2
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
+# ---- AWS CLI v2 ----
+curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+unzip -q -o awscliv2.zip
+sudo ./aws/install --update
+rm -rf aws awscliv2.zip
 
-# Installing Trivy
-sudo apt-get install wget gnupg
-wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-sudo apt-get update
-sudo apt-get install trivy
+# ---- Trivy (new repo) ----
+wget -qO - https://get.trivy.dev/deb/public.key | gpg --dearmor \
+  | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://get.trivy.dev/deb generic main" \
+  | sudo tee /etc/apt/sources.list.d/trivy.list
+sudo apt update && sudo apt install -y trivy
 trivy --version
+
+echo "Jenkins initial password:"
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword

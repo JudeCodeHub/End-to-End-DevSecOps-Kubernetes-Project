@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket       = "<YOUR_TF_STATE_BUCKET>"
+    bucket       = "dev-secops-bucket-1234"
     region       = "us-east-1"
     key          = "End-to-End-Kubernetes-DevSecOps-Tetris-Project/Jenkins-Server-TF/terraform.tfstate"
     encrypt      = true
@@ -11,6 +11,14 @@ terraform {
     aws = {
       version = ">= 6.23.0"
       source  = "hashicorp/aws"
+    }
+    tls = {
+      version = ">= 4.0.0"
+      source  = "hashicorp/tls"
+    }
+    local = {
+      version = ">= 2.5.0"
+      source  = "hashicorp/local"
     }
   }
 }
