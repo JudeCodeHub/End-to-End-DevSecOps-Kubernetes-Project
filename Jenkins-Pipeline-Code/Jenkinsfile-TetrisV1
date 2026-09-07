@@ -14,7 +14,7 @@ pipeline {
         }
         stage('Checkout from Git') {
             steps {
-                git branch: 'master', url: 'https://github.com/<YOUR_GITHUB_USERNAME>/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git'
+                git branch: 'main', url: 'https://github.com/JudeCodeHub/End-to-End-DevSecOps-Kubernetes-Project.git'
             }
         }
         stage('Sonarqube Analysis') {
@@ -45,7 +45,7 @@ pipeline {
             steps {
                 dir('Tetris-V1') {
                     dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml', unstableTotalHigh: 999, unstableTotalCritical: 999
                 }
             }
         }
@@ -60,7 +60,7 @@ pipeline {
             steps {
                 script {
                     dir('Tetris-V1') {
-                        withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        withDockerRegistry(credentialsId: 'docker') {
                             sh 'docker system prune -f'
                             sh 'docker build -t tetrisv1 .'
                         }
@@ -71,7 +71,7 @@ pipeline {
         stage("Docker Image Pushing") {
             steps {
                 script {
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'docker') {
                         sh 'docker tag tetrisv1 avian19/tetrisv1:${BUILD_NUMBER}'
                         sh 'docker push avian19/tetrisv1:${BUILD_NUMBER}'
                     }
@@ -85,28 +85,28 @@ pipeline {
         }
         stage('Checkout Code') {
             steps {
-                git branch: 'master', url: 'https://github.com/<YOUR_GITHUB_USERNAME>/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git'
+                git branch: 'main', url: 'https://github.com/JudeCodeHub/End-to-End-DevSecOps-Kubernetes-Project.git'
             }
         }
         stage('Update Deployment file') {
             environment {
-                GIT_REPO_NAME = "End-to-End-Kubernetes-DevSecOps-Tetris-Project"
-                GIT_USER_NAME = "<YOUR_GITHUB_USERNAME>"
+                GIT_REPO_NAME = "End-to-End-DevSecOps-Kubernetes-Project"
+                GIT_USER_NAME = "JudeCodeHub"
             }
             steps {
                 dir('Manifest-file') {
                     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                         sh '''
-                            git config user.email "<YOUR_EMAIL>"
-                            git config user.name "<YOUR_GITHUB_USERNAME>"
+                            git config user.email "judechihan727@gmail.com"
+                            git config user.name "JudeCodeHub"
                             BUILD_NUMBER=${BUILD_NUMBER}
                             echo $BUILD_NUMBER
                             imageTag=$(grep -oP '(?<=tetrisv1:)[^ ]+' deployment-service.yml)
                             echo $imageTag
                             sed -i "s/tetrisv1:${imageTag}/tetrisv1:${BUILD_NUMBER}/" deployment-service.yml
                             git add deployment-service.yml
-                            git commit -m "Update deployment Image to version \${BUILD_NUMBER}"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
+                            git commit -m "Update deployment Image to version ${BUILD_NUMBER}"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                         '''
                     }
                 }
