@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket       = "<YOUR_TF_STATE_BUCKET>"
+    bucket       = "dev-secops-bucket-1234"
     region       = "us-east-1"
     key          = "End-to-End-Kubernetes-DevSecOps-Tetris-Project/EKS-TF/terraform.tfstate"
     use_lockfile = true
