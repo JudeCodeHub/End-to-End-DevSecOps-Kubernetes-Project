@@ -14,13 +14,13 @@ pipeline {
         }
         stage('Checkout from Git') {
             steps {
-                git branch: 'master', url: 'https://github.com/<YOUR_GITHUB_USERNAME>/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git'
+                git branch: 'main', url: 'https://github.com/JudeCodeHub/End-to-End-DevSecOps-Kubernetes-Project.git'
             }
         }
         stage('Sonarqube Analysis') {
             steps {
                 dir('Tetris-V2') {
-                    withSonarQubeEnv('sonar-server') {
+                    withSonarQubeEnv('sonar-scanner') {
                         sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Tetris \
                         -Dsonar.projectKey=Tetris '''
                     }
@@ -45,7 +45,7 @@ pipeline {
             steps {
                 dir('Tetris-V2') {
                     dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml', unstableTotalHigh: 999, unstableTotalCritical: 999
                 }
             }
         }
@@ -60,9 +60,9 @@ pipeline {
             steps {
                 script {
                     dir('Tetris-V2') {
-                        withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        withDockerRegistry(credentialsId: 'docker') {
                             sh 'docker system prune -f'
-                            sh 'docker build -t tetrisv1 .'
+                            sh 'docker build -t tetrisv2 .'
                         }
                     }
                 }
@@ -71,42 +71,42 @@ pipeline {
         stage("Docker Image Pushing") {
             steps {
                 script {
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                        sh 'docker tag tetrisv1 avian19/tetrisv1:${BUILD_NUMBER}'
-                        sh 'docker push avian19/tetrisv1:${BUILD_NUMBER}'
+                    withDockerRegistry(credentialsId: 'docker') {
+                        sh 'docker tag tetrisv2 jude2001/tetrisv2:${BUILD_NUMBER}'
+                        sh 'docker push jude2001/tetrisv2:${BUILD_NUMBER}'
                     }
                 }
             }
         }
         stage("TRIVY Image Scan") {
             steps {
-                sh 'trivy image avian19/tetrisv1:${BUILD_NUMBER} > trivyimage.txt'
+                sh 'trivy image jude2001/tetrisv2:${BUILD_NUMBER} > trivyimage.txt'
             }
         }
         stage('Checkout Code') {
             steps {
-                git branch: 'master', url: 'https://github.com/<YOUR_GITHUB_USERNAME>/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git'
+                git branch: 'main', url: 'https://github.com/JudeCodeHub/End-to-End-DevSecOps-Kubernetes-Project.git'
             }
         }
         stage('Update Deployment file') {
             environment {
-                GIT_REPO_NAME = "End-to-End-Kubernetes-DevSecOps-Tetris-Project"
-                GIT_USER_NAME = "<YOUR_GITHUB_USERNAME>"
+                GIT_REPO_NAME = "End-to-End-DevSecOps-Kubernetes-Project"
+                GIT_USER_NAME = "JudeCodeHub"
             }
             steps {
                 dir('Manifest-file') {
                     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                         sh '''
-                            git config user.email "<YOUR_EMAIL>"
-                            git config user.name "<YOUR_GITHUB_USERNAME>"
+                            git config user.email "judechihan727@gmail.com"
+                            git config user.name "JudeCodeHub"
                             BUILD_NUMBER=${BUILD_NUMBER}
                             echo $BUILD_NUMBER
-                            imageTag=$(grep -oP '(?<=tetrisv1:)[^ ]+' deployment-service.yml)
+                            imageTag=$(grep -oP '(?<=tetrisv2:)[^ ]+' deployment-service.yml)
                             echo $imageTag
-                            sed -i "s/tetrisv1:${imageTag}/tetrisv1:${BUILD_NUMBER}/" deployment-service.yml
+                            sed -i "s/tetrisv2:${imageTag}/tetrisv2:${BUILD_NUMBER}/" deployment-service.yml
                             git add deployment-service.yml
-                            git commit -m "Update deployment Image to version \${BUILD_NUMBER}"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
+                            git commit -m "Update deployment Image to version ${BUILD_NUMBER}"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
                         '''
                     }
                 }
